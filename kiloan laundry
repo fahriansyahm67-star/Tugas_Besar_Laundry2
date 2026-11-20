@@ -1,0 +1,176 @@
+import streamlit as st
+
+# ---------------- Konfigurasi halaman ----------------
+st.set_page_config(page_title="Laundry Kiloan", page_icon="⚡", layout="centered")
+
+# ---------------- Tema Zenitsu (hitam + kuning petir) ----------------
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background:
+            radial-gradient(circle at 85% 8%, rgba(255, 200, 0, 0.28), transparent 38%),
+            radial-gradient(circle at 10% 95%, rgba(255, 140, 0, 0.22), transparent 40%),
+            #0a0a0a;
+    }
+    header[data-testid="stHeader"] { background: transparent; }
+
+    .judul {
+        text-align: center;
+        font-size: 3rem;
+        font-weight: 900;
+        letter-spacing: 2px;
+        color: #FFD400;
+        text-shadow: 0 0 10px #FFB800, 0 0 28px #FF8C00;
+        margin: 0.5rem 0 1.5rem 0;
+    }
+
+    label, .stTextInput label p {
+        color: #FFC933 !important;
+        font-weight: 600 !important;
+    }
+    .stTextInput input {
+        background-color: #151515 !important;
+        color: #FFE680 !important;
+        border: 1.5px solid #FFB800 !important;
+        border-radius: 8px !important;
+    }
+    .stTextInput input:focus {
+        box-shadow: 0 0 10px #FFD400 !important;
+        border-color: #FFD400 !important;
+    }
+
+    .stButton > button {
+        width: 100%;
+        background: linear-gradient(135deg, #FFD400, #FF8C00);
+        color: #111 !important;
+        font-weight: 800;
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 0 12px rgba(255, 184, 0, 0.55);
+    }
+    .stButton > button:hover {
+        box-shadow: 0 0 22px rgba(255, 212, 0, 0.95);
+        color: #000 !important;
+    }
+
+    .kartu {
+        background: rgba(20, 20, 20, 0.9);
+        border: 1.5px solid #FFB800;
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin-top: 14px;
+        box-shadow: 0 0 18px rgba(255, 184, 0, 0.35);
+    }
+    .baris {
+        display: flex;
+        justify-content: space-between;
+        color: #FFE9A8;
+        padding: 5px 0;
+        border-bottom: 1px dashed rgba(255, 184, 0, 0.3);
+    }
+    .total {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #FFD400, #FF8C00);
+        color: #111;
+        font-weight: 900;
+        font-size: 1.15rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="judul">⚡ Laundry Kiloan ⚡</div>', unsafe_allow_html=True)
+
+
+# ---------------- Fungsi bantu ----------------
+def rupiah(angka: int) -> str:
+    return "Rp " + f"{angka:,}".replace(",", ".")
+
+
+def hitung():
+    """Validasi input lalu hitung biaya. Hasil disimpan di session_state."""
+    nim = st.session_state.nim.strip()
+    berat_teks = st.session_state.berat.strip()
+
+    st.session_state.hasil = None
+    st.session_state.error = None
+
+    # Validasi NIM: tepat 10 digit angka
+    if not (nim.isascii() and nim.isdigit() and len(nim) == 10):
+        st.session_state.error = "NIM tidak valid! NIM harus terdiri dari tepat 10 digit angka."
+        return
+
+    # Validasi berat: bilangan bulat > 0
+    try:
+        berat = int(berat_teks)
+    except ValueError:
+        st.session_state.error = "Berat cucian tidak valid! Masukkan bilangan bulat."
+        return
+    if berat <= 0:
+        st.session_state.error = "Berat cucian harus lebih dari 0."
+        return
+
+    # Perhitungan
+    digit_terakhir = int(nim[-1])
+    tarif = 5000 + digit_terakhir * 500
+    jumlah_genap = sum(1 for d in nim if int(d) % 2 == 0)
+    persen_diskon = jumlah_genap  # banyak digit genap x 1 %
+    biaya_normal = berat * tarif
+    potongan = biaya_normal * persen_diskon // 100
+    total = biaya_normal - potongan
+
+    st.session_state.hasil = {
+        "tarif": tarif,
+        "genap": jumlah_genap,
+        "diskon": persen_diskon,
+        "normal": biaya_normal,
+        "potongan": potongan,
+        "total": total,
+    }
+
+
+def reset():
+    st.session_state.nim = ""
+    st.session_state.berat = ""
+    st.session_state.hasil = None
+    st.session_state.error = None
+
+
+# ---------------- State awal ----------------
+for kunci, nilai in {"nim": "", "berat": "", "hasil": None, "error": None}.items():
+    if kunci not in st.session_state:
+        st.session_state[kunci] = nilai
+
+# ---------------- Form input ----------------
+st.text_input("NIM (10 digit)", key="nim", max_chars=30)
+st.text_input("Berat Cucian (kg)", key="berat")
+
+kol1, kol2 = st.columns(2)
+kol1.button("⚡ Hitung", on_click=hitung)
+kol2.button("↻ Reset", on_click=reset)
+
+# ---------------- Tampilan hasil ----------------
+if st.session_state.error:
+    st.error(st.session_state.error)
+
+h = st.session_state.hasil
+if h:
+    st.markdown(
+        f"""
+        <div class="kartu">
+            <div class="baris"><span>Tarif per kg</span><span>{rupiah(h['tarif'])}</span></div>
+            <div class="baris"><span>Jumlah digit genap</span><span>{h['genap']}</span></div>
+            <div class="baris"><span>Persen diskon</span><span>{h['diskon']} %</span></div>
+            <div class="baris"><span>Biaya normal</span><span>{rupiah(h['normal'])}</span></div>
+            <div class="baris"><span>Potongan</span><span>{rupiah(h['potongan'])}</span></div>
+            <div class="total"><span>Total bayar</span><span>{rupiah(h['total'])}</span></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
